@@ -15,30 +15,12 @@ warning off all
 V = data.spatialcoord;
 % Curves
 X = data.abscissas;
-Y = data.ordinates;
+Y = data.coefficients; % coefficients
 [n, m] = size(Y);
 
 % Constructing the design matrices for the mixing weights and for the regressor components
-% [Xw, B] =  designSRM_mrf(V, X, Y, mixingOption, regressionOption);
-[Xw, B] =  designSRM(V, X, mixingOption, regressionOption);
-%Xw = repmat(Xw,n,1);
-% q1 = size(Xw, 2);
+[Xw, ~] =  designSRM(V, X, mixingOption, regressionOption);
 
-dimBeta = size(B, 2);
-%n regularly sampled curves
-
-Bstack = repmat(B,n,1);% desing matrix [(n*m) x (dimBeta)]
-
-% Bstack = [];
-% for i=1:n
-%     Bstack = [Bstack; [ones(m, 1)*V(i,:) B]];
-% end
-% dimBeta = size(Bstack, 2);
-% B = Bstack(1:m,:);
-
-Ytild = reshape(Y',[],1); % [(n*m) x 1]
-
-%
 best_loglik = -inf;
 EM_run = 1;
 while (EM_run <= nbr_EM_runs)
@@ -47,7 +29,7 @@ while (EM_run <= nbr_EM_runs)
     %% EM Initializaiton
     
     init_kmeans = 0;
-    mixModel = Initialize_SRM_Gauss(Xw, B, Y, K, mixingOption, init_kmeans, EM_run);
+    mixModel = Initialize_SRM_Gauss(Xw,Y, K, mixingOption, init_kmeans, EM_run);
     
     if strcmp(mixingOption,'softmax')
         Alphak = mixModel.Alphak;
@@ -83,8 +65,8 @@ while (EM_run <= nbr_EM_runs)
         log_alpha_Phi_vy = zeros(n,K);
         
         for k=1:K
-
-            [log_fk_Yi, ~] = mvgaussian_pdf(Y, Muk(k,:), Sigmak2(:,:,k));%, 'diagonal');
+            
+            [log_fk_Yi, ~] = mvgaussian_pdf(Y, Muk(k,:), Sigmak2(:,:,k), 'diagonal');
             if strcmp(mixingOption, 'gaussian')
                 % Gating network conditional density
                 [log_Phi_V, ~] = mvgaussian_pdf(Xw, Mus(k,:), R(:,:,k));%, 'diagonal');
@@ -96,28 +78,25 @@ while (EM_run <= nbr_EM_runs)
         end
         
         if strcmp(mixingOption, 'softmax')
-            
             % log_Posterior = log_normalize(log_Pik_fk_Yi);
             log_sum_Pik_fk_Yi = logsumexp(log_Pik_fk_Yi,2);
             log_Posterior = log_Pik_fk_Yi - log_sum_Pik_fk_Yi*ones(1,K);
-
+            
             loglik = 1/n*sum(log_sum_Pik_fk_Yi,1);
             %loglik = 1/m*sum(logsumexp(log_Pik_fk_Yi,2),1);
-        else
-           % log_Posterior = log_normalize(log_alpha_Phi_vy);
-           % loglik = 1/m*sum(logsumexp(log_alpha_Phi_vy,2),1);
-
-             %log_alpha_Phi_vy = log_normalize(log_alpha_Phi_vy);
-             logsum_alpha_Phi_vy = logsumexp(log_alpha_Phi_vy,2);
-             log_Posterior = log_alpha_Phi_vy - logsum_alpha_Phi_vy*ones(1,K);
-%                 % Posterior = Posterior./(sum(Posterior,2)*ones(1,K));
+        else % normalized Gaussian
+            % log_Posterior = log_normalize(log_alpha_Phi_vy);
+            % loglik = 1/m*sum(logsumexp(log_alpha_Phi_vy,2),1);
             
+            %log_alpha_Phi_vy = log_normalize(log_alpha_Phi_vy);
+            logsum_alpha_Phi_vy = logsumexp(log_alpha_Phi_vy,2);
+            log_Posterior = log_alpha_Phi_vy - logsum_alpha_Phi_vy*ones(1,K);
             loglik = 1/n*sum(logsum_alpha_Phi_vy,1);
         end
         
         Posterior = exp(log_Posterior);
-        Tauik = Posterior;
-        
+        Tauik = Posterior./(sum(Posterior,2)*ones(1,K)); % normalize
+
         fprintf(1,'EM Iteration : %d  log-likelihood: %f \n',iter, loglik);
         %loglik = sum(log(sum(PikFik,2))) ;% + regEM;
         
@@ -128,18 +107,18 @@ while (EM_run <= nbr_EM_runs)
         %                           %
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         for k=1:K
-                tauik = Tauik(:,k);
-                % Gating Network
-                % The mixing proportions
-                nk = sum(tauik);
-                % the Gaussian means
-                Muk(k,:) = sum(Y.*(tauik*ones(1,m)),1)/sum(tauik);
-                Z = (Y-ones(n,1)*Muk(k,:)).*(sqrt(tauik)*ones(1,m));
-                %                 % the Gaussian cov matrices
-                Sigmak2(:,:,k) = Z'*Z/nk ;%+ 1e-2*inv(B'*B);%
-                
-                %sk = sum(sum(Z.^2, 1))/(nk);
-                %Sigmak2(:,:,k) = sk*eye(m);%
+            tauik = Tauik(:,k);
+            % Gating Network
+            % The mixing proportions
+            nk = sum(tauik);
+            % the Gaussian means
+            Muk(k,:) = sum(Y.*(tauik*ones(1,m)),1)/sum(tauik);
+            Z = (Y-ones(n,1)*Muk(k,:)).*(sqrt(tauik)*ones(1,m));
+            %                 % the Gaussian cov matrices
+            Sigmak2(:,:,k) = Z'*Z/nk ;%+ 1e-2*inv(B'*B);%
+            
+            %sk = sum(sum(Z.^2, 1))/(nk);
+            %Sigmak2(:,:,k) = sk*eye(m);%
         end
         if strcmp(mixingOption,'softmax')
             % update the mixing proportions : Alphak
@@ -149,7 +128,6 @@ while (EM_run <= nbr_EM_runs)
             piik = softmax.piik;
         else
             d=size(Xw,2);
-            sk=0;
             for k = 1:K
                 tauik = Tauik(:,k);
                 % Gating Network
@@ -159,25 +137,17 @@ while (EM_run <= nbr_EM_runs)
                 % the Gaussian means
                 Mus(k,:) = sum(Xw.*(tauik*ones(1,d)),1)/sum(tauik);
                 Z=(Xw-ones(n,1)*Mus(k,:)).*(sqrt(tauik)*ones(1,d));
-                %                 % the Gaussian cov matrices
-                
-                %sk = sk+sum(Z.^2, 1)/nk;
-                
-%                 sk = sum(sum(Z.^2, 1))/(nk);
-%                 R(:,:,k) = sk*eye(d);
-                
-           lambda = 0.7;%.08;%5*1e-1;
-            R(:,:,k) =  lambda *  (Z'*Z/nk);%lambda*diag(diag(Z'*Z/nk));
-                
+                %                 % the Gaussian cov matrices                
+                lambda = .07;%.07;%5*1e-1;
+                R(:,:,k) =  lambda *  (Z'*Z/nk);%lambda*diag(diag(Z'*Z/nk));
+                %R(:,:,k) =  ((Z'*Z/(nk)) + lambda *  (Xw'*Xw)/(d*n));
             end
         end
         %% End of EM
         iter=iter+1;
         
         % test of convergence
-        if (abs(loglik - loglik_old) <=threshold)
-            converged = 1;
-        end
+        if (abs(loglik - loglik_old) <=threshold); converged = 1; end
         % store the loglik values
         
         stored_lglik = [stored_lglik loglik];

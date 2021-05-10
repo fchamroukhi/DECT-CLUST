@@ -24,7 +24,7 @@ else
     %% Gaussian gating
     
     % Gating Net parameters
-    sol_km = myKmeans(Y,K);
+    sol_km = myKmeans(V,K);
     klas = sol_km.klas;
     %param.Mus = sol_km.muk;
     
@@ -43,7 +43,9 @@ else
         %param.Mus(k,:) = V(rndind(k),:) ;%
         param.Mus(k,:) = mean(Vk);
         z = (Vk - ones(nk,1)*param.Mus(k,:));
-         param.R(:,:,k)  = z'*z/nk;%eye(p);%cov(Xk);
+        
+        lambda = 0.05;
+         param.R(:,:,k)  = lambda * z'*z/nk;%eye(p);%cov(Xk);
         %param.R(:,:,k)  = eye(p);%cov(Xk);
         
 %sk = sum(sum(z.*z))/(m*nk);

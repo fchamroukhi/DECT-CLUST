@@ -103,7 +103,7 @@ while (EM_run <= nbr_EM_runs)
             
             if strcmp(mixingOption, 'gaussian')
                 % Gating network conditional density
-                [log_Phi_V, ~] = mvgaussian_pdf(Xw, Mus(k,:), R(:,:,k), 'diagonal');
+                [log_Phi_V, ~] = mvgaussian_pdf(Xw, Mus(k,:), R(:,:,k));%, 'diagonal');
                 % weighted joint loglik for component k
                 log_alpha_Phi_vy(:,k) = log(Alphak(k))*ones(n,1) + log_Phi_V + log_fk_Yi;
                 
@@ -144,12 +144,14 @@ while (EM_run <= nbr_EM_runs)
         end
         Posterior = exp(log_Posterior);
         %Posterior = exp(log_normalize(log_Posterior));
+        Posterior = Posterior./(sum(Posterior,2)*ones(1,K));
         Tauik = Posterior;
         
         % if SEM
-        %[~, mixStats.klas] = max(mixStats.posterior_prob,[],2);
-        %mnrnd(mixStats.posterior_prob)
-        
+%if iter>10
+Tauik = mnrnd(1, Tauik);
+%[Tauik Posterior(1:20,:) sum(Tauik(1:20,:),2)]
+%end  
         
         %  print the value of the optimized log-likelihood criterion
         fprintf(1,'EM Iteration : %d  log-likelihood: %f \n',iter, loglik);
@@ -163,8 +165,10 @@ while (EM_run <= nbr_EM_runs)
             % update of the regression coefficients
             tmp =  repmat(Tauik(:,k),1,m);% [m x n]
             Wk = reshape(tmp',[],1);%cluster_weights(:)% [mn x 1]
-            wYk = sqrt(Wk).*Ytild; % fuzzy cluster k
-            wBk = sqrt(Wk*ones(1,dimBeta)).*Bstack;%[(n*m)*(M+nknots)]
+            sqrtWk = sqrt(Wk);
+            wYk = sqrtWk.*Ytild; % fuzzy cluster k
+            %wBk = (sqrtWk*ones(1,dimBeta)).*Bstack;%[(n*m)*(M+nknots)]
+            wBk = repmat(sqrtWk,1,dimBeta).*Bstack;%[(n*m)*(M+nknots)]
             % maximization w.r.t betak: Weighted least squares
             %betak  = inv(phik'*phik + 1e-4*eye(dimBeta))*phik'*Yk;
             betak  = (wBk'*wBk)\(wBk'*wYk);
@@ -208,12 +212,14 @@ while (EM_run <= nbr_EM_runs)
                 %                 % the Gaussian cov matrices
                 
                 %sk = sk+sum(Z.^2, 1)/nk;
+               % sk = sk + Z'*Z/nk;
                 
                 %sk = sum(sum(Z.^2, 1))/(nk);
                 %R(:,:,k) = sk*eye(d);% + 1e-6*eye(d);%
                 %R(:,:,k) = diag(diag((Z'*Z)/(m*nk)));
-                R(:,:,k) = Z'*Z/(d*m*nk);
-               R(:,:,k) = diag(diag(Z'*Z/((m-1)*(nk-1))));
+            %R(:,:,k) = Z'*Z/(d*m*nk);
+            lambda = 0.05;%1/m;%0.05;%1/m;%.05;%5*1e-1;
+            R(:,:,k) =  lambda *  (Z'*Z)/(nk);%lambda*diag(diag(Z'*Z/nk));
                 
                 Theta(:,:,k) = inv(R(:,:,k));
                 
@@ -222,9 +228,9 @@ while (EM_run <= nbr_EM_runs)
                 %       Piik(:,k) = Alphak(k)*gaussiank;
             end
      %   piik = Piik./(sum(Piik,2)*ones(1,K));
-            %             for k=1:K
-            %                 R(:,:,k) = (sum(sk)/d)*eye(d);%
-            %             end
+%                          for k=1:K
+%                              R(:,:,k) = sk;%
+%                          end
         end
         %% End of EM
         iter=iter+1;

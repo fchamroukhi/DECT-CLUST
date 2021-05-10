@@ -19,11 +19,11 @@ model = "bSRM";% B-Spline regression mixture
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % choose an approach %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-strategy = "FunRegMix";
+strategy = "FunSRM";
 %strategy = "ExtraFeat-GMM";
 %strategy = "kmeans";
-
-K = 7; % number of clusters in the data
+%
+K = 7;%20 % number of clusters in the data
 
 nbr_EM_runs = 1; % algo setting
 
@@ -38,7 +38,7 @@ for patient_name = "subject8_tumor"%"HNSCC10"
     load(['data/',char(patient_name),'_GT.mat']);
     load(['data/',char(patient_name),'.mat']);
     [~,~,slic_min] = ind2sub(size(segm_vol_full),find(segm_vol_full,1,'first')); % lower slice containing a tumor
-    slic_inds = [1,2,6];%,5,7,8];%1,2,3,4,5,6];%,
+    slic_inds = [1,2,3,4,6,8];%,5,7,8];%1,2,3,4,5,6];%,
     %fn_save_pdf = '';  % if don't want to save fig as pdf
     fn_save_pdf = fullfile('results', char(patient_name));  % to save fig as pdf
     
@@ -57,7 +57,7 @@ for patient_name = "subject8_tumor"%"HNSCC10"
         % Select a ROI on one 2D slice of the 3D volume
         %     [col_obj, row_obj] = find(imdilate(gr_truth,strel('disk',30)));  % ROI around tumor
         %  lin_obj = find(ones(size(gr_truth)));
-        lin_obj = find(imdilate(gr_truth,strel('disk',20)));  % ROI around tumor;
+        lin_obj = find(imdilate(gr_truth,strel('disk',30)));  % ROI around tumor;
         [col_obj, row_obj] = ind2sub(size(gr_truth),lin_obj);
         rmin = max(min(row_obj),1); cmin = max(min(col_obj),1);
         rmax = min(max(row_obj),size(subj_slic,1)); cmax = min(max(col_obj),size(subj_slic,2));
@@ -84,10 +84,10 @@ for patient_name = "subject8_tumor"%"HNSCC10"
         
         %Y = zscore(Y);
         %Y = Y - ones(length(Y),1)*mean(Y,1);
+        
         V =  coord; % scale coordinates to keep them in [0,1]
-        %T = linspace(40,140,21);%1:21;
+        %T = linspace(40,140,21);
         T = linspace(0, 1, 21);
-        %T = T/max(max(T)); % scale x sampling values to keep them in [0,1] %linspace(0, 1, m);
         
         %% Uncomment to apply to Other (non-spatial) curve data sets (for algo testing)
         % dataname = 'waveform'; load(dataname); Y = waveform;
@@ -143,39 +143,62 @@ for patient_name = "subject8_tumor"%"HNSCC10"
             
             
             switch(strategy)
-                case('FunRegMix')
+                case('FunSRM')
                     
                     [mixModel, mixStats] = learn_SRM_EM(Curves, K, mixingOption, regressionOptions, nbr_EM_runs);
+                    %[mixModel, mixStats] = learn_SRMF_EM(Curves, K, mixingOption, regressionOptions, nbr_EM_runs);
                     
                     %show_SRM_results(Curves, mixModel, mixStats, model);
-                     
-                    show_SRM_results_new(Curves, mixModel, mixStats, model);
-
-                    figure,
-                    plot(T, mixStats.Muk)
+                    
+                    % show_SRM_results_new(Curves, mixModel, mixStats, model);
+                    
+                    %figure, plot(T, mixStats.Muk)
+                    figure, plot(mixStats.stored_loglik)
+                    
+                    %% MRF smoothing
+                    
+                    if(spatial_smoothing)
+                        neighb = 1;
+                        [mixStats.klas, K] = mrf_smoothing(coord, mixStats.klas, neighb);
+                    end
+                    
                 case('ExtraFeat-GMM')
                     % construct B splines features
                     
                     [~, B] = designSRM(Curves.spatialcoord, Curves.abscissas, mixingOption, regressionOptions);
                     dimBeta = size(B,2);
-                    X = zeros(n, dimBeta);
+                    Betas = zeros(n, dimBeta);
                     %close
                     for i=1:n
                         betai = (B'*B)\B'*Y(i,:)';
-                        X(i,:) = betai;
-%                           plot(Curves.abscissas, Curves.ordinates(i,:),'o');
-%                           hold on, plot(Curves.abscissas, B*betai,'r');
-%                           pause
-%                           clf
+                        Betas(i,:) = betai;
+                        %                                                   plot(Curves.abscissas, Curves.ordinates(i,:),'o');
+                        %                                                   hold on, plot(Curves.abscissas, B*betai,'r');
+                        %                                                   pause
+                        %                                                   clf
+                        %% MRF smoothing
+                        
+                        if(spatial_smoothing)
+                            neighb = 1;
+                            [mixStats.klas, K] = mrf_smoothing(coord, mixStats.klas, neighb);
+                        end
+                        
                     end
                     %
-                    X = zscore(X);
-                    Curves.ordinates = X;
+                    Betas = zscore(Betas);
+                    Curves.coefficients = Betas;
                     
                     [mixModel, mixStats] = learn_SRM_EM_Gauss(Curves, K, mixingOption, regressionOptions, nbr_EM_runs);
                     
                     figure, plot(mixStats.stored_loglik)
-
+                    %% MRF smoothing
+                    
+                    if(spatial_smoothing)
+                        neighb = 1;
+                        [mixStats.klas, K] = mrf_smoothing(coord, mixStats.klas, neighb);
+                    end
+                    
+                    
                 case('kmeans')
                     %                 [mixStats.klas, mixModel.Muk] = kmeans(Curves.ordinates, K, 'MaxIter', 500, 'Display', 'iter');
                     
@@ -185,6 +208,13 @@ for patient_name = "subject8_tumor"%"HNSCC10"
                     sol_km = myKmeans(Curves.ordinates, K , n_tries_kmeans, max_iter_kmeans, verbose_kmeans);
                     mixStats.klas = sol_km.klas;
                     mixModel.Muk = sol_km.muk;
+                    %% MRF smoothing
+                    
+                    if(spatial_smoothing)
+                        neighb = 1;
+                        [mixStats.klas, K] = mrf_smoothing(coord, mixStats.klas, neighb);
+                    end
+                    
                     %[mixStats.klas, mixModel.Muk] = myKmeans(Curves.ordinates, K, 'MaxIter', 500, 'Display', 'iter');
                 otherwise
                     error("unknown strategy")
@@ -192,14 +222,6 @@ for patient_name = "subject8_tumor"%"HNSCC10"
             
             fprintf('Elapsed time %f sec \n', toc);
             %show_SRM_results_new(Curves, mixModel, mixStats, model);
-            
-            %% MRF smoothing
-            
-            if(spatial_smoothing)
-                neighb = 1;
-                [mixStats.klas, K] = mrf_smoothing(coord, mixStats.klas, neighb);
-            end
-            
             
             %% Compute similarity scores
             
@@ -257,14 +279,14 @@ for patient_name = "subject8_tumor"%"HNSCC10"
     %     figure, gscatter(Xt(:,1),Xt(:,2),mixStats.klas)
     %
     
-    % Save image in pdf
-    if ~isempty(fn_save_pdf)
-        set(fig_slic,'Units','Inches');
-        pos = get(fig_slic,'Position');
-        set(fig_slic,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)])
-        rdn = num2str(randi(1000));
-        print(fig_slic,[fn_save_pdf,'_',rdn,'__',char(model),'.pdf'],'-dpdf','-r0')
-    end
+    %     % Save image in pdf
+    %     if ~isempty(fn_save_pdf)
+    %         set(fig_slic,'Units','Inches');
+    %         pos = get(fig_slic,'Position');
+    %         set(fig_slic,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)])
+    %         rdn = num2str(randi(1000));
+    %         print(fig_slic,[fn_save_pdf,'_',rdn,'__',char(model),'.pdf'],'-dpdf','-r0')
+    %     end
     
 end
 
@@ -285,7 +307,6 @@ if ~isempty(tumor_contour)
         end
     end
 end
-end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -303,3 +324,26 @@ end
 % set(fig_slic,'PaperPositionMode','Auto','PaperUnits','Inches','PaperSize',[pos(3), pos(4)])
 % print(fig_slic,[fn_save_pdf,'_',rdn,'__',char(model),'_convergence.pdf'],'-dpdf','-r0')
 
+% %% TO BE ADDED LATER
+% model_selection = 0;
+% if (~model_selection) % no model selection (fixed K)
+%     [mixModel, mixStats] = learn_SRM_EM(Curves, K, mixingOption, regressionOptions, nbr_EM_runs);
+% else % Select K from the data
+%     current_BIC = -inf;
+%     Kmin = 5; Kmax = 30;
+%     Krange = Kmin:Kmax;
+%     
+%     BIC = zeros(1, length(Krange));
+%     for K = Krange(1):Krange(end)
+%         [mixModel_K, mixStats_K] = learn_SRM_EM(Curves, K, mixingOption, regressionOptions, nbr_EM_runs);
+%         fprintf(1,'Number of segments K: %d | BIC %f \n', K, mixStats_K.BIC);
+%         if mixStats_K.BIC>current_BIC
+%             mixModel = mixModel_K;
+%             mixStats = mixStats_K;
+%             
+%             current_BIC = mixStats_K.BIC;
+%         end
+%         BIC(K - Krange(1)+1) = mixStats_K.BIC;
+%     end
+% end
+end

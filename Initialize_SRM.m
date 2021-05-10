@@ -118,9 +118,9 @@ else
         z = (Vk - ones(nk,1)*param.Mus(k,:));
         
        lambda = 5*1e-2;
-        param.R(:,:,k) = lambda*diag(diag(z'*z/nk));
+      %param.R(:,:,k) = lambda*diag(diag(z'*z/nk));
             
-        %param.R(:,:,k)  = z'*z/(m*nk);
+      param.R(:,:,k)  = lambda*(z'*z)/(nk);
         
 %param.R(:,:,k)  = eye(p)*sum(sum(z.*z))/(nk);
 %param.R(:,:,k)  = eye(p)*sum(sum(z.*z))/(m*nk);

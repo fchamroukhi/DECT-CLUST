@@ -34,7 +34,7 @@ Ytild = reshape(Y',[],1); % [(n*m) x 1]
 %
 best_loglik = -inf;
 EM_run = 1;
- 
+
 while (EM_run <= nbr_EM_runs)
     if nbr_EM_runs>1,fprintf(1, 'EM run n°  %d \n ',EM_run); end
     EM_run = EM_run + 1;
@@ -51,14 +51,6 @@ while (EM_run <= nbr_EM_runs)
         Mus =  mixModel.Mus;
         R =  mixModel.R;
         Theta = mixModel.Theta;
-        %
-%         Piik = zeros(n, K);
-%         for k=1:K
-%             [~, gaussiank] = mvgaussian_pdf(Xw, Mus(k,:), R(:,:,k));
-%             
-%             Piik(:,k) = Alphak(k)*gaussiank;
-%         end
-%         piik = Piik./(sum(Piik,2)*ones(1,K));
     end
     Betak = mixModel.Betak;
     Sigmak2 = mixModel.Sigmak2;
@@ -107,8 +99,8 @@ while (EM_run <= nbr_EM_runs)
                 % weighted joint loglik for component k
                 log_alpha_Phi_vy(:,k) = log(Alphak(k))*ones(n,1) + log_Phi_V + log_fk_Yi;
                 
-               %log_Pik_fk_Yi(:,k) = log(piik(:,k)) + log_fk_Yi;% [nxK]
-
+                %log_Pik_fk_Yi(:,k) = log(piik(:,k)) + log_fk_Yi;% [nxK]
+                
             else %'softmax'
                 % weighted conditional loglik for component k
                 log_Pik_fk_Yi(:,k) = log(piik(:,k)) + log_fk_Yi;% [nxK]
@@ -131,25 +123,21 @@ while (EM_run <= nbr_EM_runs)
             %log_alpha_Phi_vy = log_normalize(log_alpha_Phi_vy);
             logsum_alpha_Phi_vy = logsumexp(log_alpha_Phi_vy,2);
             log_Posterior = log_alpha_Phi_vy - logsum_alpha_Phi_vy*ones(1,K);
-%             %                 % Posterior = Posterior./(sum(Posterior,2)*ones(1,K));
-%             
             
-        %log_Posterior = log_normalize(log_Pik_fk_Yi);
+            %log_Posterior = log_normalize(log_Pik_fk_Yi);
             
-            
-            
-           loglik = 1/n*sum(logsum_alpha_Phi_vy,1);
-           %loglik = 1/n*sum(logsumexp(log_Pik_fk_Yi,2),1) ;%+ softmax.reg_irls;
-
+            loglik = 1/n*sum(logsum_alpha_Phi_vy,1);            
         end
         Posterior = exp(log_Posterior);
         %Posterior = exp(log_normalize(log_Posterior));
+        Posterior = Posterior./(sum(Posterior,2)*ones(1,K));
         Tauik = Posterior;
         
         % if SEM
-        %[~, mixStats.klas] = max(mixStats.posterior_prob,[],2);
-        %mnrnd(mixStats.posterior_prob)
-        
+        % if iter>10
+        % Tauik = mnrnd(1, Tauik);
+        % %[Tauik Posterior(1:20,:) sum(Tauik(1:20,:),2)]
+        % end
         
         %  print the value of the optimized log-likelihood criterion
         fprintf(1,'EM Iteration : %d  log-likelihood: %f \n',iter, loglik);
@@ -168,27 +156,11 @@ while (EM_run <= nbr_EM_runs)
             %wBk = (sqrtWk*ones(1,dimBeta)).*Bstack;%[(n*m)*(M+nknots)]
             wBk = repmat(sqrtWk,1,dimBeta).*Bstack;%[(n*m)*(M+nknots)]
             % maximization w.r.t betak: Weighted least squares
-            %betak  = inv(phik'*phik + 1e-4*eye(dimBeta))*phik'*Yk;
             betak  = (wBk'*wBk)\(wBk'*wYk);
             Betak(:,k) = betak;
-            %B*betak;
             % update the variance
             sigmak2 = sum((wYk - wBk*betak).^2)/sum(Wk);%(m*sum(tauik));%
-            %             % sigmak2 = (1-gama)*sigmak2 + gama*Q;
             Sigmak2(k) = sigmak2;
-            
-            %
-            % Z = (Y - ones(n,m)*(B*betak)).*(sqrt(Tauik(:,k))*ones(1,m));
-            % Sigmak2(:,:,k) = Z'*Z/(m*sum(Tauik(:,k))) + 1e-5*eye(m);
-            
-            % the Gaussian cov matrices
-            % Sigmak2(:,:,k) = cov(Y(mixStats.klas==k,:))%diag(diag((z'*z)/sum(tauik)))
-            
-            %             Sigmak2(:,:,k) = sigmak2*eye(m);%(sqrt(tauik).*(Y - ones(n,m)*(B*betak)))'*(sqrt(tauik).*(Y - ones(n,m)*(B*betak)))/(m*sum(tauik));
-            %Sigmak2(k) = sigmak2;%
-            %              Sigmak2(:,:,k) = (sqrt(tauik).*(Y - ones(n,m)*(B*betak)))'*(sqrt(tauik).*(Y - ones(n,m)*(B*betak)))/(sum(tauik));
-            %Sigmak2(:,:,k) = (sqrt(Tauik(:,k)).*(Y - reshape(Bstack*betak,n,m)))'*(sqrt(Tauik(:,k)).*(Y - reshape(Bstack*betak,n,m)))/sum(Tauik(:,k));
-            %Sigmak2(:,:,k) = diag(diag(Sigmak2(:,:,k)));
         end
         if strcmp(mixingOption,'softmax')
             % update the mixing proportions : Alphak
@@ -209,33 +181,17 @@ while (EM_run <= nbr_EM_runs)
                 Z=(Xw-ones(n,1)*Mus(k,:)).*(sqrt(Tauik(:,k))*ones(1,d));
                 %                 % the Gaussian cov matrices
                 
-                %sk = sk+sum(Z.^2, 1)/nk;
-                
-                %sk = sum(sum(Z.^2, 1))/(nk);
-                %R(:,:,k) = sk*eye(d);% + 1e-6*eye(d);%
-                %R(:,:,k) = diag(diag((Z'*Z)/(m*nk)));
-            %R(:,:,k) = Z'*Z/(d*m*nk);
-            lambda = .05;%5*1e-1;
-            R(:,:,k) =  lambda *  (Z'*Z/nk);%lambda*diag(diag(Z'*Z/nk));
+                lambda = 0.05;%1/m;%0.05;%1/m;%.05;%5*1e-1;
+                R(:,:,k) =  lambda *  (Z'*Z)/(nk);%lambda*diag(diag(Z'*Z/nk));
                 
                 Theta(:,:,k) = inv(R(:,:,k));
-                
-                %
-                %       [~, gaussiank] = mvgaussian_pdf(Xw, Mus(k,:), R(:,:,k));
-                %       Piik(:,k) = Alphak(k)*gaussiank;
             end
-     %   piik = Piik./(sum(Piik,2)*ones(1,K));
-            %             for k=1:K
-            %                 R(:,:,k) = (sum(sk)/d)*eye(d);%
-            %             end
         end
         %% End of EM
         iter=iter+1;
         
         % test of convergence
-        if (abs(loglik - loglik_old) <=threshold)
-            converged = 1;
-        end
+        if (abs(loglik - loglik_old) <=threshold); converged = 1;end
         % store the loglik values
         
         stored_lglik = [stored_lglik loglik];

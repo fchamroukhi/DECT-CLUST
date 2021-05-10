@@ -46,7 +46,7 @@ while (EM_run <= nbr_EM_runs)
     EM_run = EM_run + 1;
     %% EM Initializaiton
     
-    init_kmeans = 1;
+    init_kmeans = 0;
     mixModel = Initialize_SRMF(V, B, Y, K, mixingOption, init_kmeans, EM_run);
     
     if strcmp(mixingOption,'softmax')
@@ -113,7 +113,9 @@ while (EM_run <= nbr_EM_runs)
                     %for j=1:lngth(V_i);
                         %[log_Phi_Vij, ~] = mvgaussian_pdf(V_i(j,:), Mus(k,:), R(:,:,k));%, 'diagonal');
                     %end
-                    Phi_Vi = sum(mvnpdf(V_i, Mus(k,:), R(:,:,k)), 1);%, 'diagonal');
+                    [~, Phi_vij] = mvgaussian_pdf(V_i, Mus(k,:), R(:,:,k));%, 'diagonal');
+                    Phi_Vi = sum(Phi_vij,1);
+                    %Phi_Vi = sum(mvnpdf(V_i, Mus(k,:), R(:,:,k), 'diagonal'), 1);%, 'diagonal');
                     Phi_V(i) = Phi_Vi;
                 end
                 log_Phi_V = log(Phi_V);
@@ -156,10 +158,7 @@ while (EM_run <= nbr_EM_runs)
         end
         
         %[~, mixStats.klas] = max(mixStats.posterior_prob,[],2);
-        
-        %mnrnd(mixStats.posterior_prob)
-        
-        
+    
         %  print the value of the optimized log-likelihood criterion
         %loglik = 1/m*loglik + softmax.reg_irls;
         
@@ -235,24 +234,20 @@ while (EM_run <= nbr_EM_runs)
                 Mus(k,:) = muk;
                 
                 sigk= 0;
+                
+                lambda = 0.1;%0.07;
                 for i=1:n
                     V_i = Xw{i};
                     v = length(V_i);
                 Z= sqrt(Tauik(i,k))* (V_i- ones(v,1)*Mus(k,:));
-                sigk = sigk + Z'*Z/(length(V_i)*nk);
+                sigk = sigk + lambda * Z'*Z/(length(V_i)*nk);
                 %sigk = sigk + sum(sum(Z.^2, 1))/(length(V_i)*nk);
                 end
                 %R(:,:,k) = sigk*eye(size(V_i, 2));%sigk;
                 R(:,:,k) =  sigk;
                 
-                % %                 [~, gaussiank] = mvgaussian_pdf(Xw, Mus(k,:),R(:,:,k));% sk*eye(2));%R(:,:,k));
-                %                 [~, gaussiank] = mvgaussian_pdf(Xw, Mus(k,:),R(:,:,k));
-                %                 Piik(:,k) = Alphak(k)*gaussiank;
             end
-            %             for k=1:K
-            %                 R(:,:,k) = (sum(sk)/d)*eye(d);%
-            %             end
-            %piik = Piik./(sum(Piik,2)*ones(1,K));
+
         end
         %% End of EM
         iter=iter+1;
