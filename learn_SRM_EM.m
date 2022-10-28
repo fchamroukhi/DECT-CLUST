@@ -181,7 +181,7 @@ while (EM_run <= nbr_EM_runs)
                 Z=(Xw-ones(n,1)*Mus(k,:)).*(sqrt(Tauik(:,k))*ones(1,d));
                 %                 % the Gaussian cov matrices
                 
-                lambda = 0.05;%1/m;%0.05;%1/m;%.05;%5*1e-1;
+                lambda =0.05;%%0.05
                 R(:,:,k) =  lambda *  (Z'*Z)/(nk);%lambda*diag(diag(Z'*Z/nk));
                 
                 Theta(:,:,k) = inv(R(:,:,k));
@@ -209,6 +209,7 @@ while (EM_run <= nbr_EM_runs)
         mixModel.Alphak =   Alphak;
         mixModel.Mus =  Mus;
         mixModel.R = R;%
+        
         
         Piik = zeros(n,K);
         for k=1:K%

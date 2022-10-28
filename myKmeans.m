@@ -43,7 +43,7 @@ while (nbr_run<nbr_runs)
     previous_err = -inf;
     Zik = zeros(n,K);% partition
     %% 1. Initialization of the centres
-    rnd_indx = randperm(n);
+    rnd_indx = 1:n;%randperm(n);
     centres = X(rnd_indx(1:K),:);
     while (iter<nbr_iter_max && ~converged)
         iter = iter+1;

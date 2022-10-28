@@ -23,14 +23,15 @@ strategy = "FunSRM";
 %strategy = "ExtraFeat-GMM";
 %strategy = "kmeans";
 %
-K = 7;%20 % number of clusters in the data
+K = 20;%20 % number of clusters in the data
 
 nbr_EM_runs = 1; % algo setting
 
 spatial_smoothing = 0;
 %% data (spectral image)
 
-for patient_name = "subject8_tumor"%"HNSCC10"
+%for patient_name = "subject8_tumor"%"HNSCC10"
+for patient_name = "HNSCC9"%"HNSCC10"
     % for patient_name = ["subject8_tumor","HNSCC2","HNSCC3","HNSCC5","HNSCC8","HNSCC9","HNSCC10","HNSCC11","HNSCC12","HNSCC13","HNSCC15","HNSCC17","HNSCC18","HNSCC26"]
     
     % load(['../../data/',char(patient_name),'_GT.mat']);
@@ -57,7 +58,7 @@ for patient_name = "subject8_tumor"%"HNSCC10"
         % Select a ROI on one 2D slice of the 3D volume
         %     [col_obj, row_obj] = find(imdilate(gr_truth,strel('disk',30)));  % ROI around tumor
         %  lin_obj = find(ones(size(gr_truth)));
-        lin_obj = find(imdilate(gr_truth,strel('disk',30)));  % ROI around tumor;
+        lin_obj = find(imdilate(gr_truth,strel('disk',60)));  % ROI around tumor;
         [col_obj, row_obj] = ind2sub(size(gr_truth),lin_obj);
         rmin = max(min(row_obj),1); cmin = max(min(col_obj),1);
         rmax = min(max(row_obj),size(subj_slic,1)); cmax = min(max(col_obj),size(subj_slic,2));
