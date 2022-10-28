@@ -1,7 +1,7 @@
 # DECT-CLUST: 
 
 
-DECT-CLUST contains and ensemble of unsupervised learning algorithms dedicated to **D**ual-**E**nergy **C**omputed **T**omography image clustering and application to **H**ead and **N**eck **S**quamous **C**ell **C**arcinoma segmentation.
+DECT-CLUST contains an ensemble of original unsupervised learning algorithms dedicated to **D**ual-**E**nergy **C**omputed **T**omography image clustering and application to **H**ead and **N**eck **S**quamous **C**ell **C**arcinoma segmentation.
 
 The archive contains the **source codes** used in the **DECT-CLUST paper**. In principle the data used in this context are not sharable but you can still reach out if you think we may have a common interest and we preserve data constraints...
 
