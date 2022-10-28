@@ -1,7 +1,7 @@
-# DECT-CLUST: DECT image clustering and application to HNSCC tumor segmentation
+# DECT-CLUST: 
 
 
-DECT-CLUST contains and ensemble of unsupervised learning algorithms dedicated to Dual-Energy CT image clustering and application to Head and Neck Squamous Cell Carcinoma segmentation.
+DECT-CLUST contains and ensemble of unsupervised learning algorithms dedicated to **D**ual-**E**nergy **C**omputed **T**omography image clustering and application to **H**ead and **N**eck **S**quamous **C**ell **C**arcinoma segmentation.
 
 The archive contains the **source codes** used in the **DECT-CLUST paper**. In principle the data used in this context are not sharable but you can still reach out if you think we may have a common interest and we preserve data constraints...
 
@@ -18,12 +18,11 @@ DECT are 4D data: a 3D body volume over a range of X-ray energy levels.
 *the data folder in this repo is empty and need to be filled on local machines.*  
 
 
-### Methods
+### Models and Algorithms
 
-Spatial Functional Regression Mixture Models for t+3d/t+2D image Segmentation:
+DECT-CLUST is based on a family of Spatial Functional Regression Mixture Models for t+3d/t+2D image Segmentation.
 
-
-We develop novel unsupervised learning techniques based on mixture models and functional data analysis (FDA) models to the clustering of DECT images. We design functional mixture models that integrate spatial image context in mixture weights, with mixture component densities being constructed upon the DECT energy decay curves as functional 7 observations. We develop dedicated expectation-maximization (EM) algorithms for the maximum likelihood estimation (MLE) of the model parameters. To our knowledge, this is the first article to 9 develop statistical FDA and model-based clustering techniques to take advantage of the full spectral information provided by DECT. 
+It implements unsupervised learning techniques based on mixture models and functional data analysis (FDA) models to the clustering of DECT images. It designs functional mixture models that integrate spatial image context in mixture weights, with mixture component densities being constructed upon the DECT energy decay curves as functional observations. The developed algorithms are dedicated expectation-maximization (EM) algorithms for the maximum likelihood estimation (MLE) of the parameters of the constructed models. To our knowledge, this is the first article to develop statistical FDA and model-based clustering techniques to take advantage of the full spectral information provided by DECT. 
 
 
 
